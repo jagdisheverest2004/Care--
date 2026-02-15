@@ -11,6 +11,7 @@ app = Flask(__name__)
 CORS(app)
 
 
+# --- MOCK CLASSES (For Testing when models aren't trained yet) ---
 class MockResNet50:
     def predict(self, image_path: str) -> Dict[str, str]:
         return {"body_part": "Chest", "finding": "Pneumonia"}
@@ -28,48 +29,75 @@ class MockBioBERT:
 
 loader = DocumentLoader()
 
-# Force usage of real models
+# --- CONFIGURATION SWITCHES ---
+# Set these to TRUE when you are ready to use the real AI models
 USE_MOCKS = False 
-USE_REAL_VISION = False       # Set True if you have the vision model ready
+USE_REAL_VISION = True        # Set True for ResNet50
 USE_REAL_SAFETY = True        # Set True for BioBERT DDI
-USE_REAL_SUMMARIZER = False   # Set True if you have the T5 model ready
+USE_REAL_SUMMARIZER = False   # Set True for T5
 
 vision_model = MockResNet50()
 summarizer = MockT5Summarizer()
 safety_engine = MockBioBERT()
 
+# --- 1. SETUP VISION MODEL ---
 if USE_REAL_VISION:
     try:
         from vision_model import load_trained_model, predict_image
+        
+        # DEFINITION: Which model do you want to load? 
+        # For Phase 3, you might want "models/chest_specialist.pth"
+        MODEL_PATH = "models/chest_specialist.pth" 
 
-        _vision_model, _class_names = load_trained_model()
+        if os.path.exists(MODEL_PATH):
+            # FIX 1: Pass the required MODEL_PATH argument
+            _vision_model, _class_names = load_trained_model(MODEL_PATH)
 
-        class RealVision:
-            def predict(self, image_path: str) -> Dict[str, Any]:
-                label, confidence = predict_image(_vision_model, image_path)
-                return {"body_part": "Unknown", "finding": label, "confidence": confidence}
+            class RealVision:
+                def predict(self, image_path: str) -> Dict[str, Any]:
+                    # FIX 2: Pass _class_names to the prediction function
+                    label, confidence = predict_image(_vision_model, _class_names, image_path)
+                    return {"body_part": "Unknown", "finding": label, "confidence": confidence}
 
-        vision_model = RealVision()
-    except FileNotFoundError:
-        pass
+            vision_model = RealVision()
+            print(f"✅ Vision Model Loaded from {MODEL_PATH}")
+        else:
+            print(f"⚠️ Warning: Vision model file not found at {MODEL_PATH}. Using Mock.")
 
+    except ImportError:
+        print("⚠️ Warning: vision_model.py not found.")
+    except Exception as e:
+        print(f"❌ Error loading Vision Model: {e}")
+
+# --- 2. SETUP SUMMARIZER ---
 if USE_REAL_SUMMARIZER:
-    from summarizer import generate_summary
+    try:
+        from summarizer import generate_summary
 
-    class RealSummarizer:
-        def generate_summary(self, text: str) -> str:
-            return generate_summary(text)
+        class RealSummarizer:
+            def generate_summary(self, text: str) -> str:
+                return generate_summary(text)
 
-    summarizer = RealSummarizer()
+        summarizer = RealSummarizer()
+        print("✅ Summarizer Model Loaded")
+    except ImportError:
+        print("⚠️ Warning: summarizer.py not found.")
 
+# --- 3. SETUP SAFETY ENGINE ---
 if USE_REAL_SAFETY:
-    from safety_engine import DrugSafetyEngine
+    try:
+        from safety_engine import DrugSafetyEngine
 
-    ddi_model_dir = os.getenv("DDI_MODEL_DIR", "biobert_ddi")
-    if os.path.isdir(ddi_model_dir):
-        safety_engine = DrugSafetyEngine(model_name=ddi_model_dir)
-    else:
-        safety_engine = DrugSafetyEngine()
+        ddi_model_dir = os.getenv("DDI_MODEL_DIR", "biobert_ddi")
+        if os.path.isdir(ddi_model_dir):
+            safety_engine = DrugSafetyEngine(model_name=ddi_model_dir)
+            print(f"✅ Safety Engine Loaded from {ddi_model_dir}")
+        else:
+            # Fallback to standard initialization if folder doesn't exist
+            safety_engine = DrugSafetyEngine()
+            print("✅ Safety Engine Loaded (Default/Rules Only)")
+    except ImportError:
+        print("⚠️ Warning: safety_engine.py not found.")
 
 
 def _get_current_meds_from_db(patient_id: str) -> List[str]:
@@ -87,13 +115,17 @@ def analyze_xray():
     if not file.filename or not file.filename.lower().endswith((".png", ".jpg", ".jpeg")):
         return jsonify({"error": "Unsupported file type"}), 400
 
-    temp_path = os.path.join("temp_xray" + os.path.splitext(file.filename)[1])
+    # Create temp directory if it doesn't exist
+    os.makedirs("temp_xray", exist_ok=True)
+    temp_path = os.path.join("temp_xray", file.filename)
     file.save(temp_path)
 
     try:
-        loader.preprocess_xray(temp_path)
+        # loader.preprocess_xray(temp_path) # Optional depending on your loader logic
         result = vision_model.predict(temp_path)
         return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
     finally:
         if os.path.exists(temp_path):
             os.remove(temp_path)
@@ -115,6 +147,8 @@ def summarize_report():
         text = loader.extract_text_from_pdf(temp_path)
         summary = summarizer.generate_summary(text)
         return jsonify({"original_text_len": len(text), "summary": summary})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
     finally:
         if os.path.exists(temp_path):
             os.remove(temp_path)
@@ -142,7 +176,6 @@ def check_safety_batch():
     overall_safe = True
 
     for new_drug in new_drugs:
-        # We rename 'warnings' to 'interactions_analysis' because it now holds SAFE stuff too
         interactions_analysis = [] 
         drug_is_safe = True
         
@@ -164,11 +197,11 @@ def check_safety_batch():
         results.append({
             "new_drug": new_drug, 
             "is_safe": drug_is_safe, 
-            "analysis_results": interactions_analysis # Contains both Safe and Unsafe
+            "analysis_results": interactions_analysis 
         })
 
     return jsonify({"patient_id": patient_id, "overall_safe": overall_safe, "results": results})
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=False)
+    app.run(host="0.0.0.0", port=5000, debug=True)
