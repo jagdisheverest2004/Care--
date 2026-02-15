@@ -1,0 +1,16 @@
+torch
+torchvision
+transformers
+pandas
+numpy
+opencv-python
+pillow
+pdf2image
+pytesseract
+flask
+flask-cors
+scikit-learn
+tqdm
+sentencepiece
+accelerate
+kaggle
