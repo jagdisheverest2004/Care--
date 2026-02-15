@@ -44,8 +44,10 @@ def build_model(num_classes: int) -> nn.Module:
     return model
 
 
-def train_model(train_dir: str, val_dir: str, num_classes: int, epochs: int = 5, batch_size: int = 16):
+def train_model(train_dir: str, val_dir: str, num_classes: int, output_path: str, epochs: int = 5, batch_size: int = 16):
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Training on {device} for {num_classes} classes. Saving to {output_path}...")
 
     train_transform = transforms.Compose([
         transforms.Resize((224, 224)),
@@ -74,15 +76,21 @@ def train_model(train_dir: str, val_dir: str, num_classes: int, epochs: int = 5,
     best_state = None
 
     for epoch in range(epochs):
+        print(f"Epoch {epoch+1}/{epochs}")
         model.train()
-        for images, labels in train_loader:
+        running_loss = 0.0
+        
+        # Add a progress print for large datasets
+        for batch_idx, (images, labels) in enumerate(train_loader):
             images, labels = images.to(device), labels.to(device)
             optimizer.zero_grad()
             outputs = model(images)
             loss = criterion(outputs, labels)
             loss.backward()
             optimizer.step()
-
+            running_loss += loss.item()
+            
+        # Validation Phase
         model.eval()
         correct = 0
         total = 0
@@ -95,12 +103,16 @@ def train_model(train_dir: str, val_dir: str, num_classes: int, epochs: int = 5,
                 correct += (predicted == labels).sum().item()
 
         acc = correct / max(total, 1)
+        print(f"Val Acc: {acc:.4f} | Loss: {running_loss/len(train_loader):.4f}")
+
         if acc > best_acc:
             best_acc = acc
             best_state = model.state_dict()
 
     if best_state is not None:
-        torch.save({"model_state": best_state, "class_names": train_dataset.class_names}, "resnet50_chest_xray.pth")
+        # CRITICAL FIX: Use the dynamic output_path variable
+        torch.save({"model_state": best_state, "class_names": train_dataset.class_names}, output_path)
+        print(f"Model saved to {output_path} with Acc: {best_acc:.4f}")
 
     return model
 

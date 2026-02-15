@@ -121,24 +121,6 @@ def summarize_report():
 
 
 @app.route("/check_safety", methods=["POST"])
-def check_safety():
-    payload = request.get_json(silent=True) or {}
-    current_meds = payload.get("current_meds", [])
-    new_drug = payload.get("new_drug", "")
-
-    if not isinstance(current_meds, list) or not new_drug:
-        return jsonify({"error": "Invalid payload"}), 400
-
-    warnings = []
-    for med in current_meds:
-        result = safety_engine.check_interaction(med, new_drug)
-        if result.get("interaction_detected"):
-            warnings.append(result)
-
-    return jsonify({"is_safe": len(warnings) == 0, "warnings": warnings})
-
-
-@app.route("/check_safety_batch", methods=["POST"])
 def check_safety_batch():
     payload = request.get_json(silent=True) or {}
     patient_id = payload.get("patient_id", "")
