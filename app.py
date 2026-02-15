@@ -158,16 +158,32 @@ def check_safety_batch():
 
     results = []
     overall_safe = True
+
     for new_drug in new_drugs:
-        warnings = []
+        # We rename 'warnings' to 'interactions_analysis' because it now holds SAFE stuff too
+        interactions_analysis = [] 
+        drug_is_safe = True
+        
         for med in current_meds:
             result = safety_engine.check_interaction(med, new_drug)
+            
+            # Update safety flags ONLY if interaction is found
             if result.get("interaction_detected"):
-                warnings.append({"current_med": med, "result": result})
-        is_safe = len(warnings) == 0
-        if not is_safe:
-            overall_safe = False
-        results.append({"new_drug": new_drug, "is_safe": is_safe, "warnings": warnings})
+                drug_is_safe = False
+                overall_safe = False
+            
+            # ALWAYS add the result, whether Safe or Unsafe
+            interactions_analysis.append({
+                "current_med": med, 
+                "new_drug": new_drug,
+                "result": result
+            })
+
+        results.append({
+            "new_drug": new_drug, 
+            "is_safe": drug_is_safe, 
+            "analysis_results": interactions_analysis # Contains both Safe and Unsafe
+        })
 
     return jsonify({"patient_id": patient_id, "overall_safe": overall_safe, "results": results})
 

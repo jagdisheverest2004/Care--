@@ -70,15 +70,28 @@ class DrugSafetyEngine:
         # Class 1 = Interaction, Class 0 = Safe
         confidence = float(probs[0, 1].item())
         
+        
+        
         # Set Threshold to 0.90 since your model is 96% accurate now
         THRESHOLD = 0.90 
         interaction_detected = confidence >= THRESHOLD
+        
+        if interaction_detected:
+            # AI doesn't know the exact reason, so we give a standard warning
+            description = (
+                f"BioBERT AI has detected a {confidence:.1%} probability of chemical interaction. "
+                "The specific mechanism is not in the database, but structural similarity suggests "
+                "potential adverse effects. Clinical monitoring is advised."
+            )
+        else:
+            description = "No interaction detected by AI analysis."
 
         result = {
             "interaction_detected": interaction_detected,
             "confidence": round(confidence, 4),
             "severity": "High" if interaction_detected else "Low",
             "status": "AI Warning" if interaction_detected else "Safe",
-            "source": "BioBERT AI"
+            "source": "BioBERT AI",
+            "description": description
         }
         return result
