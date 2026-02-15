@@ -28,10 +28,11 @@ class MockBioBERT:
 
 loader = DocumentLoader()
 
-USE_MOCKS = os.getenv("USE_MOCKS", "1") == "1"
-USE_REAL_VISION = os.getenv("USE_REAL_VISION", "0") == "1" or not USE_MOCKS
-USE_REAL_SAFETY = os.getenv("USE_REAL_SAFETY", "0") == "1" or not USE_MOCKS
-USE_REAL_SUMMARIZER = os.getenv("USE_REAL_SUMMARIZER", "0") == "1" or not USE_MOCKS
+# Force usage of real models
+USE_MOCKS = False 
+USE_REAL_VISION = False       # Set True if you have the vision model ready
+USE_REAL_SAFETY = True        # Set True for BioBERT DDI
+USE_REAL_SUMMARIZER = False   # Set True if you have the T5 model ready
 
 vision_model = MockResNet50()
 summarizer = MockT5Summarizer()
