@@ -93,10 +93,16 @@ def train_model(train_dir: str, val_dir: str, num_classes: int, output_path: str
     best_state = None
 
     for epoch in range(epochs):
+        print(f"--- Starting Epoch {epoch+1}/{epochs} ---")
         model.train()
         running_loss = 0.0
         
+        batch_count = 0
         for images, labels in train_loader:
+            batch_count += 1
+            if batch_count % 10 == 0:  # Print every 10 batches
+                print(f"Processing Batch {batch_count}...", end="\r")
+            
             images, labels = images.to(device), labels.to(device)
             optimizer.zero_grad()
             outputs = model(images)
