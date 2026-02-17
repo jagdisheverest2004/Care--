@@ -18,6 +18,9 @@ class MedicalXrayDataset(Dataset):
         self.class_names: List[str] = []
 
         # Sort folders to ensure consistent class indices
+        if not os.path.exists(root_dir):
+            raise FileNotFoundError(f"Directory not found: {root_dir}")
+
         for idx, class_name in enumerate(sorted(os.listdir(root_dir))):
             class_path = os.path.join(root_dir, class_name)
             if not os.path.isdir(class_path):
@@ -27,22 +30,34 @@ class MedicalXrayDataset(Dataset):
                 if file_name.lower().endswith((".png", ".jpg", ".jpeg")):
                     self.samples.append((os.path.join(class_path, file_name), idx))
 
+        print(f"Found {len(self.samples)} images across {len(self.class_names)} classes.")
+
     def __len__(self) -> int:
         return len(self.samples)
 
     def __getitem__(self, index: int):
-        image_path, label = self.samples[index]
-        image = Image.open(image_path).convert("RGB")
-        if self.transform:
-            image = self.transform(image)
-        return image, label
-
+        # Robust loading loop
+        while index < len(self.samples):
+            image_path, label = self.samples[index]
+            try:
+                image = Image.open(image_path).convert("RGB")
+                if self.transform:
+                    image = self.transform(image)
+                return image, label
+            except Exception as e:
+                print(f"⚠️ Corrupt image found: {image_path}. Skipping...")
+                # Move to next image
+                index = (index + 1) % len(self.samples)
+        
+        raise RuntimeError("Too many corrupt images found sequentially.")
 
 # --- 2. Model Builder (Optimized for Medical Imaging) ---
 from torchvision.models import ResNet
 
 def build_model(num_classes: int) -> nn.Module:
-    model: ResNet = models.resnet50(pretrained=True)
+    
+    from torchvision.models import ResNet50_Weights
+    model = models.resnet50(weights=ResNet50_Weights.DEFAULT)
     
     # 1. Freeze early layers (Edges, Shapes, Colors - ImageNet knows this well)
     for param in model.parameters():
