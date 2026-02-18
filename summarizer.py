@@ -1,106 +1,78 @@
-from typing import Dict
-
-import pandas as pd
 import torch
-from torch.utils.data import Dataset
-from transformers import T5Tokenizer, T5ForConditionalGeneration, Seq2SeqTrainer, Seq2SeqTrainingArguments
+from transformers import pipeline
 
+class MedicalSummarizer:
+    def __init__(self, model_name="google/flan-t5-base"):
+        print(f"--- Loading Advanced Generative AI: {model_name} ---")
+        device = 0 if torch.cuda.is_available() else -1
+        try:
+            # Increased max_length to allow for longer reports
+            self.generator = pipeline(
+                "text2text-generation", 
+                model=model_name, 
+                device=device,
+                max_length=256  # Allow longer output
+            )
+            self.model_loaded = True
+        except Exception as e:
+            print(f"❌ Error loading Summarizer: {e}")
+            self.model_loaded = False
 
-class MedicalSummaryDataset(Dataset):
-    def __init__(self, df: pd.DataFrame, tokenizer: T5Tokenizer, max_input_length: int = 512, max_target_length: int = 150):
-        self.df = df.reset_index(drop=True)
-        self.tokenizer = tokenizer
-        self.max_input_length = max_input_length
-        self.max_target_length = max_target_length
+    def generate_summary(self, result_dict):
+        if not self.model_loaded:
+            return "Error: Summarizer model not loaded."
 
-    def __len__(self) -> int:
-        return len(self.df)
+        # 1. Extract Data
+        modality = result_dict.get("modality", "Scan")
+        part = result_dict.get("body_part", "Body Part")
+        finding = result_dict.get("finding", "Unknown")
+        conf = result_dict.get("confidence", 0)
 
-    def __getitem__(self, index: int) -> Dict[str, torch.Tensor]:
-        row = self.df.iloc[index]
-        source = f"summarize: {row['full_report']}"
-        target = row["summary"]
+        # 2. Advanced Prompt Engineering
+        # We give the AI a "Persona" and specific instructions for tone.
+        
+        if finding == "Normal":
+            input_text = (
+                f"Act as a Radiologist. Write a reassuring clinical report for a {modality} of the {part}. "
+                f"State that the findings are completely Normal (Confidence: {conf}%). "
+                f"Mention that no fractures, lesions, or abnormalities are visible. "
+                f"Conclude that the patient is healthy."
+            )
+        elif finding != "N/A":
+            input_text = (
+                f"Act as a Radiologist. Write a serious clinical diagnostic report for a {modality} of the {part}. "
+                f"REPORT FINDINGS: Detected {finding} with high confidence ({conf}%). "
+                f"Explain that this indicates a pathological abnormality requiring medical attention. "
+                f"Suggest clinical correlation and further investigation."
+            )
+        else:
+            input_text = (
+                f"Write a standard medical note stating that a {modality} scan of the {part} was received, "
+                f"but no specific diagnostic protocol exists for this region yet."
+            )
 
-        model_inputs = self.tokenizer(
-            source,
-            max_length=self.max_input_length,
-            padding="max_length",
-            truncation=True,
-            return_tensors="pt",
-        )
+        # 3. Generate
+        try:
+            # Increase length_penalty to encourage longer sentences
+            output = self.generator(input_text, do_sample=True, temperature=0.7, max_length=150)
+            text = output[0]['generated_text'] if output else '' # type: ignore
+            return text
+            
+        except Exception as e:
+            return f"Error generating summary: {e}"
 
-        labels = self.tokenizer(
-            target,
-            max_length=self.max_target_length,
-            padding="max_length",
-            truncation=True,
-            return_tensors="pt",
-        )
-
-        model_inputs["labels"] = labels.input_ids.squeeze(0)
-        return {k: v.squeeze(0) for k, v in model_inputs.items()}
-
-
-def train_summarizer(df: pd.DataFrame, output_dir: str = "t5_medical"):
-    tokenizer = T5Tokenizer.from_pretrained("t5-small")
-    model = T5ForConditionalGeneration.from_pretrained("t5-small")
-
-    dataset = MedicalSummaryDataset(df, tokenizer)
-
-    args = Seq2SeqTrainingArguments(
-        output_dir=output_dir,
-        per_device_train_batch_size=8,
-        num_train_epochs=3,
-        predict_with_generate=True,
-        logging_steps=50,
-        save_total_limit=2,
-        fp16=torch.cuda.is_available(),
-    )
-
-    trainer = Seq2SeqTrainer(
-        model=model,
-        args=args,
-        train_dataset=dataset,
-    )
-
-    trainer.train()
-    trainer.save_model(output_dir)
-    tokenizer.save_pretrained(output_dir)
-
-    return model, tokenizer
-
-
-def _dedupe_sentences(text: str) -> str:
-    sentences = [s.strip() for s in text.split(".") if s.strip()]
-    seen = set()
-    deduped = []
-    for s in sentences:
-        key = s.lower()
-        if key in seen:
-            continue
-        seen.add(key)
-        deduped.append(s)
-    return ". ".join(deduped) + ("." if deduped else "")
-
-
-def generate_summary(text: str, model_dir: str = "t5_medical") -> str:
-    tokenizer = T5Tokenizer.from_pretrained(model_dir)
-    model = T5ForConditionalGeneration.from_pretrained(model_dir)
-
-    input_ids = tokenizer(
-        f"summarize: {text}",
-        max_length=512,
-        truncation=True,
-        return_tensors="pt",
-    ).input_ids
-
-    outputs = model.generate(
-        input_ids,
-        max_length=150,
-        num_beams=4,
-        no_repeat_ngram_size=3,
-        repetition_penalty=2.0,
-    )
-
-    summary = tokenizer.decode(outputs[0], skip_special_tokens=True)
-    return _dedupe_sentences(summary)
+# Test block
+if __name__ == "__main__":
+    summ = MedicalSummarizer()
+    
+    # Test 1: Pneumonia
+    print("\n--- TEST 1: PNEUMONIA ---")
+    print(summ.generate_summary({
+        "modality": "X-Ray", "body_part": "Chest", "finding": "Pneumonia", "confidence": 99.2
+    }))
+    
+    # Test 2: Normal Knee
+    print("\n--- TEST 2: NORMAL KNEE ---")
+    print(summ.generate_summary({
+        "modality": "X-Ray", "body_part": "Knee", "finding": "Normal", "confidence": 94.5
+    }))

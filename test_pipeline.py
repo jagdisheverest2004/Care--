@@ -3,24 +3,15 @@ import os
 
 # Define paths to test images from your datasets
 test_images = [
-    # 1a. A Chest X-ray (Pneumonia)
-    "data/chest_xray/test/PNEUMONIA/person1_virus_6.jpeg",
+    # 1. Chest X-ray 
+    "data/unifesp_sorted/train/3/10053755320637729867508668285241208441.jpg",
     
-    # 1b. A Chest X-ray (Normal)
-    "data/chest_xray/test/NORMAL/IM-0003-0001.jpeg",
+    # 2. A Knee X-ray
+    "data/unifesp_sorted/train/11/10242799675195671634897807131985000448.jpg",
     
-    
-    # 2a. A Knee X-ray (From your sorted dataset)
-    "data/knee_sorted/test/1_Abnormal/Grade3_9429101R.png",
-    
-    # 2b. A Knee X-ray (Normal)
-    "data/knee_sorted/test/0_Normal/Grade0_9003175L.png",
-    
-    # 3a. An Upper Limb X-ray (From MURA, e.g., Elbow)
-    "data/mura_sorted/val/0_Normal/valid_XR_ELBOW_patient11204_study1_negative__image1.png",
-    
-    # 3b. An Upper Limb X-ray (Abnormal)
-    "data/mura_sorted/val/1_Abnormal/valid_XR_ELBOW_patient11186_study1_positive__image1.png"
+    # 3a. An Elbow X-ray
+    "data/unifesp_sorted/train/5/11504724594984965602352794642021327380.jpg",
+
     
 ]
 
