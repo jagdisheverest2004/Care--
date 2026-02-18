@@ -216,3 +216,55 @@ def predict_image(model: nn.Module, class_names: List[str], image_path: str) -> 
 
     label = class_names[int(predicted.item())] if class_names else str(predicted.item())
     return label, float(confidence.item())
+
+
+class MedicalModel:
+    """Helper class to load and predict with trained models."""
+    def __init__(self, model_path, num_classes, device="cuda"):
+        self.device = torch.device(device if torch.cuda.is_available() else "cpu")
+        self.num_classes = num_classes
+        
+        # Load Architecture
+        self.model = build_model(num_classes).to(self.device)
+        
+        # Load Weights
+        if os.path.exists(model_path):
+            state = torch.load(model_path, map_location=self.device)
+            # Handle saving format differences (entire dict vs just state dict)
+            if "model_state" in state:
+                self.model.load_state_dict(state["model_state"])
+            else:
+                self.model.load_state_dict(state)
+                
+            self.model.eval()
+            print(f"✅ Loaded: {model_path}")
+        else:
+            print(f"❌ Error: Model not found at {model_path}")
+            self.model = None
+
+        # Preprocessing
+        self.transform = transforms.Compose([
+            transforms.Resize((224, 224)),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        ])
+
+    def predict(self, image_path):
+        if not self.model: return None, 0.0
+        
+        try:
+            # Open Image
+            img = Image.open(image_path).convert('RGB')
+            img_tensor: torch.Tensor = self.transform(img)  # type: ignore
+            img_tensor = img_tensor.unsqueeze(0).to(self.device)
+            
+            # Predict
+            with torch.no_grad():
+                outputs = self.model(img_tensor)
+                probabilities = torch.nn.functional.softmax(outputs, dim=1)
+                confidence, predicted_idx = torch.max(probabilities, 1)
+                
+            return predicted_idx.item(), confidence.item()
+        except Exception as e:
+            print(f"Prediction Error: {e}")
+            return None, 0.0
