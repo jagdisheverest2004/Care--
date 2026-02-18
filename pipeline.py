@@ -9,32 +9,31 @@ MODEL_DIR = "models"
 MODALITY_CLASSES = {0: "Other", 1: "X-Ray"} # Based on ROCO training
 # Note: For Anatomy, you need to know the EXACT index-to-name mapping from your training.
 
-# CORRECTED MAPPING (Based on Python's string sorting of folders '0', '1', '10'...)
+# CORRECTED MAPPING (Lexicographical Sort of IDs: 0, 1, 10, 11...)
 ANATOMY_CLASSES_UNIFESP = [
-    'Abdomen',          # Folder "0"
-    'Ankle',            # Folder "1"
-    'Hip',              # Folder "10"
-    'Knee',             # Folder "11"
-    'Lower Leg',        # Folder "12"
-    'Lumbar Spine',     # Folder "13"
-    'Others',           # Folder "14"
-    'Pelvis',           # Folder "15"
-    'Shoulder',         # Folder "16"
-    'Sinus',            # Folder "17"
-    'Skull',            # Folder "18"
-    'Thigh',            # Folder "19"
-    'Cervical Spine',   # Folder "2"
-    'Thoracic Spine',   # Folder "20"
-    'Wrist',            # Folder "21"
-    'Chest',            # Folder "3"
-    'Clavicles',        # Folder "4"
-    'Elbow',            # Folder "5"
-    'Feet',             # Folder "6"
-    'Finger',           # Folder "7"
-    'Forearm',          # Folder "8"
-    'Hand'              # Folder "9"
+    "Abdomen",        # Folder 0
+    "Ankle",          # Folder 1
+    "Hip",            # Folder 10
+    "Knee",           # Folder 11
+    "Lower Leg",      # Folder 12
+    "Lumbar Spine",   # Folder 13
+    "Others",         # Folder 14
+    "Pelvis",         # Folder 15
+    "Shoulder",       # Folder 16
+    "Sinus",          # Folder 17
+    "Skull",          # Folder 18
+    "Thigh",          # Folder 19
+    "Cervical Spine", # Folder 2
+    "Thoracic Spine", # Folder 20
+    "Wrist",          # Folder 21
+    "Chest",          # Folder 3
+    "Clavicles",      # Folder 4
+    "Elbow",          # Folder 5
+    "Feet",           # Folder 6
+    "Finger",         # Folder 7
+    "Forearm",        # Folder 8
+    "Hand"            # Folder 9
 ]
-
 # If you used 22 classes, check your data/unifesp_sorted/train folder names order!
 
 BINARY_CLASSES = {0: "Normal", 1: "Abnormal"}
