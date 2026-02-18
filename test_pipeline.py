@@ -3,13 +3,7 @@ import os
 
 # Define paths to test images from your datasets
 test_images = [
-    # 1. A Chest X-ray (Pneumonia)
-    "data/chest_xray/test/PNEUMONIA/person1_virus_6.jpeg",
-    
-    # 2. A Knee X-ray (From your sorted dataset)
-    # Pick a random file from your knee folder
-    "data/knee_sorted/test/1_Abnormal/Grade4_9001695L.png" 
-    # (Adjust filename to one that actually exists in your folder!)
+    "data/knee_sorted/test/1_Abnormal/Grade3_9429101R.png"
 ]
 
 def main():
