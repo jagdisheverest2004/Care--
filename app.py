@@ -31,15 +31,15 @@ def analyze_xray():
     if "file" not in request.files:
         return jsonify({"error": "No files provided under the key 'file'"}), 400
 
-    # 2. Get the list of all uploaded files
+    # 2. Get the list of all uploaded files using getlist
     files = request.files.getlist("file")
     
-    if not files or files[0].filename == '':
+    if not files or (len(files) == 1 and files[0].filename == ''):
         return jsonify({"error": "No selected files"}), 400
 
-    analysis_results = []
+    all_results = []
 
-    # 3. Process each file in the list
+    # 3. Process each file in a loop
     for file in files:
         # Generate a unique filename to prevent collisions
         unique_filename = f"{uuid.uuid4()}_{file.filename}"
@@ -49,14 +49,16 @@ def analyze_xray():
             file.save(temp_path)
 
             # 4. Run the Pipeline for this specific image
+            # This calls: Modality -> Anatomy -> Specialist -> T5 Summarizer
             result = medical_ai.analyze_image(temp_path)
-            analysis_results.append(result)
+            all_results.append(result)
 
         except Exception as e:
             print(f"❌ Error analyzing {file.filename}: {e}")
-            analysis_results.append({
+            all_results.append({
                 "file": file.filename,
-                "error": str(e)
+                "error": "Analysis failed",
+                "details": str(e)
             })
         
         finally:
@@ -64,9 +66,8 @@ def analyze_xray():
             if os.path.exists(temp_path):
                 os.remove(temp_path)
 
-    # 6. Return the list of all results as JSON
-    return jsonify(analysis_results)
-
+    # 6. Return the FULL LIST of results as a JSON array
+    return jsonify(all_results)
 # --- 3. DRUG SAFETY ENDPOINT (Kept from your previous code) ---
 @app.route("/check_safety", methods=["POST"])
 def check_safety_batch():

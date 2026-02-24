@@ -61,9 +61,7 @@ class MedicalSummarizer:
             
             # Clean up and add a professional header
             final_output = (
-                f"--- AI RADIOLOGY REPORT ---\n"
                 f"{report}\n"
-                f"---------------------------\n"
                 f"Technical Note: Analysis performed with {conf}% confidence by Care++ Vision Engine."
             )
             return final_output
