@@ -47,7 +47,7 @@ class MedicalPipeline:
         self.knee_model = MedicalModel(os.path.join(MODEL_DIR, "knee_specialist.pth"), num_classes=2)
         
         # Load Summarizer
-        self.summarizer = MedicalSummarizer(model_name="google/flan-t5-base")
+        self.summarizer = MedicalSummarizer()
 
     def analyze_image(self, image_path):
         result = {
