@@ -1,5 +1,7 @@
 import torch
-from transformers import pipeline
+from transformers import pipeline , T5Tokenizer, T5ForConditionalGeneration
+from peft import PeftModel
+import ollama
 
 class MedicalSummarizer:
     def __init__(self, model_name="google/flan-t5-large"):
@@ -61,14 +63,60 @@ class MedicalSummarizer:
             
             # Clean up and add a professional header
             final_output = (
-                f"{report}\n"
+                f"{report}"
                 f"Technical Note: Analysis performed with {conf}% confidence by Care++ Vision Engine."
             )
             return final_output
             
         except Exception as e:
             return f"Error: {e}"
+        
+class DocumentSummarizer:
+    def __init__(self):
+        print(f"--- Loading Llama-3 (8B) Clinical AI ---")
+        self.model_loaded = True
+        self.model_name = "llama3"
+        print("✅ Llama-3 Connected Successfully")
 
+    def summarize_long_document(self, text_or_chunks) -> str:
+        """Llama-3 can read the whole document at once. No Map-Reduce needed!"""
+        
+        # If the data loader still passes chunks, combine them back into one huge string
+        if isinstance(text_or_chunks, list):
+            full_document = " ".join(text_or_chunks)
+        else:
+            full_document = text_or_chunks
+
+        print("🧠 Llama-3 is analyzing the document...")
+
+        # The "ChatGPT-style" Prompt
+        # The "SOAP Executive Summary" Prompt
+        prompt = f"""You are an expert Medical Summarizer. Read the following clinical document and extract the core information into a highly condensed, bulleted executive summary. 
+
+        Use the SOAP format:
+        - **Subjective**: 1-2 bullet points on patient's reported issues and history.
+        - **Objective**: 1-2 bullet points on the most critical vital signs or exam findings.
+        - **Assessment**: The primary diagnosis in one sentence.
+        - **Plan**: 2-3 bullet points on the immediate treatment or medications.
+
+        Keep it extremely concise. Do not write long paragraphs.
+
+        DOCUMENT TO SUMMARIZE:
+        {full_document}
+        """
+
+        try:
+            # Stream the response natively using your RTX 4060
+            response = ollama.chat(model=self.model_name, messages=[
+                {'role': 'user', 'content': prompt}
+            ])
+            
+            return response['message']['content']
+            
+        except Exception as e:
+            return f"❌ Error: Make sure the Ollama app is running on your computer. Details: {e}"
+        
+        
 if __name__ == "__main__":
     summ = MedicalSummarizer()
     # Test with Pneumonia

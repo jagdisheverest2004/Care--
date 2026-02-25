@@ -1,46 +1,34 @@
-import os
-from typing import Optional
-
-import numpy as np
-import cv2
-from pdf2image import convert_from_path
-import pytesseract
-from PIL import Image
-
+import fitz
 
 class DocumentLoader:
-    def __init__(self, tesseract_cmd: Optional[str] = None) -> None:
-        if tesseract_cmd:
-            pytesseract.pytesseract.tesseract_cmd = tesseract_cmd
+    def __init__(self):
+        self.chunk_size_words = 300 # Safe size for T5-Large
 
-    def extract_text_from_pdf(self, pdf_path: str) -> str:
-        if not os.path.exists(pdf_path):
-            raise FileNotFoundError(f"PDF not found: {pdf_path}")
+    def extract_and_chunk_pdf(self, pdf_path: str):
+        """
+        Extracts text from a PDF and chunks it into smaller pieces.
+        """
+        print(f"📄 Extracting text from {pdf_path}...")
+        doc = fitz.open(pdf_path)
+        full_text = ""
+        
+        # 1. Extract all text page by page
+        for page_num in range(len(doc)):
+            page = doc.load_page(page_num)
+            full_text += page.get_text("text") + " "  # type: ignore
+            
+        # Clean up whitespace
+        full_text = " ".join(full_text.split())
+        
+        if not full_text:
+            raise ValueError("No text could be extracted from the PDF. It might be an image-only PDF.")
 
-        pages = convert_from_path(pdf_path)
-        ocr_text_chunks = []
-
-        for page in pages:
-            page_image = cv2.cvtColor(np.array(page), cv2.COLOR_RGB2GRAY)
-            _, thresh = cv2.threshold(page_image, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-            text = pytesseract.image_to_string(thresh)
-            ocr_text_chunks.append(text)
-
-        return "\n".join(ocr_text_chunks).strip()
-
-    def preprocess_xray(self, image_path: str) -> np.ndarray:
-        if not os.path.exists(image_path):
-            raise FileNotFoundError(f"Image not found: {image_path}")
-
-        image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
-        if image is None:
-            raise ValueError(f"Failed to read image: {image_path}")
-
-        image = cv2.resize(image, (224, 224), interpolation=cv2.INTER_AREA)
-        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-        image = clahe.apply(image)
-        image = image.astype(np.float32) / 255.0
-
-        # Convert to (C, H, W) for PyTorch
-        image = np.expand_dims(image, axis=0)
-        return image
+        # 2. CHUNKING: Split the text into safe chunks of ~300 words
+        words = full_text.split()
+        chunks = []
+        for i in range(0, len(words), self.chunk_size_words):
+            chunk = " ".join(words[i : i + self.chunk_size_words])
+            chunks.append(chunk)
+            
+        print(f"🔪 Split document into {len(chunks)} chunks.")
+        return chunks
