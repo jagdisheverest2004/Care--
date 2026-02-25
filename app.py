@@ -6,19 +6,82 @@ from flask_cors import CORS
 # Import your custom modules
 from pipeline import MedicalPipeline
 from safety_engine import DrugSafetyEngine  # Assuming you still want the safety feature
+from data_loader import DocumentLoader        
+from summarizer import DocumentSummarizer
 
 app = Flask(__name__)
 CORS(app)
 
 # --- 1. INITIALIZE THE BRAIN ---
-# This loads all 5 Vision models and the T5-Large Summarizer into GPU memory
 print("--- Starting Care++ API Server ---")
 medical_ai = MedicalPipeline()
-safety_engine = DrugSafetyEngine() # Keep this for the safety endpoint
+safety_engine = DrugSafetyEngine() 
+
+# <-- ADD THESE TWO LINES -->
+doc_loader = DocumentLoader()
+doc_summarizer = DocumentSummarizer()
 
 # Ensure temp directory exists
 TEMP_DIR = "api_uploads"
 os.makedirs(TEMP_DIR, exist_ok=True)
+
+
+# --- NEW: THE CLINICAL REPORT SUMMARIZER ENDPOINT ---
+@app.route("/summarize_reports", methods=["POST"])
+def summarize_reports():
+    """
+    Endpoint for uploading single or multiple clinical PDFs.
+    Returns a list of JSON objects containing the AI-generated medical narrative for each.
+    """
+    # 1. Check if the 'report' key exists in the request
+    if "report" not in request.files:
+        return jsonify({"error": "No files provided under the key 'report'"}), 400
+
+    # 2. Get the list of all uploaded files (handles 1 or many)
+    files = request.files.getlist("report")
+    
+    if not files or (len(files) == 1 and files[0].filename == ''):
+        return jsonify({"error": "No selected files"}), 400
+
+    all_results = []
+
+    # 3. Process each PDF in a loop
+    for file in files:
+        unique_filename = f"{uuid.uuid4()}_{file.filename}"
+        temp_path = os.path.join(TEMP_DIR, unique_filename)
+        
+        try:
+            # Save PDF temporarily
+            file.save(temp_path)
+
+            # 4. Extract Text and Chunk it using PyMuPDF
+            chunks = doc_loader.extract_and_chunk_pdf(temp_path)
+
+            # 5. Generate the Narrative Summary using Llama-3
+            master_summary = doc_summarizer.summarize_long_document(chunks)
+
+            all_results.append({
+                "file": file.filename,
+                "summary": master_summary,
+                "status": "success"
+            })
+
+        except Exception as e:
+            print(f"❌ Error summarizing {file.filename}: {e}")
+            all_results.append({
+                "file": file.filename,
+                "error": "Summarization failed",
+                "details": str(e),
+                "status": "failed"
+            })
+        
+        finally:
+            # 6. Cleanup: Remove the temporary PDF
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+
+    # 7. Return the results
+    return jsonify(all_results)
 
 # --- 2. THE X-RAY ANALYSIS ENDPOINT ---
 @app.route("/analyze_xray", methods=["POST"])
