@@ -72,8 +72,8 @@ class DrugSafetyEngine:
         
         
         
-        # Set Threshold to 0.90 since your model is 96% accurate now
-        THRESHOLD = 0.90 
+        # Set Threshold to 0.70 since your model is 96% accurate now
+        THRESHOLD = 0.70 
         interaction_detected = confidence >= THRESHOLD
         
         if interaction_detected:

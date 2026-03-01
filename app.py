@@ -7,7 +7,7 @@ from flask_cors import CORS
 from pipeline import MedicalPipeline
 from safety_engine import DrugSafetyEngine  # Assuming you still want the safety feature
 from data_loader import DocumentLoader        
-from summarizer import DocumentSummarizer
+from summarizer import DocumentSummarizer, SafetyExplainer
 
 app = Flask(__name__)
 CORS(app)
@@ -20,6 +20,8 @@ safety_engine = DrugSafetyEngine()
 # <-- ADD THESE TWO LINES -->
 doc_loader = DocumentLoader()
 doc_summarizer = DocumentSummarizer()
+
+safety_explainer = SafetyExplainer()  # Optional: If you want to explain safety results in more detail
 
 # Ensure temp directory exists
 TEMP_DIR = "api_uploads"
@@ -152,6 +154,14 @@ def check_safety_batch():
             if res.get("interaction_detected"):
                 drug_is_safe = False
                 overall_safe = False
+                
+                enhanced_desc = safety_explainer.explain_interaction(
+                    med, 
+                    new_drug, 
+                    res.get("description")
+                )
+                res["description"] = enhanced_desc
+                
             interactions.append({"current_med": med, "new_drug": new_drug, "result": res})
         
         results.append({"new_drug": new_drug, "is_safe": drug_is_safe, "analysis_results": interactions})

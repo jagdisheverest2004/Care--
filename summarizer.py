@@ -79,6 +79,44 @@ class DocumentSummarizer:
             response = ollama.chat(model=self.model_name, messages=[
                 {'role': 'user', 'content': prompt}
             ])
-            return response['message']['content']
+            
+            raw_summary = response['message']['content']
+            clean_summary = raw_summary.replace('**', '').replace('\n', ' ').strip()
+            return " ".join(clean_summary.split())
+            
         except Exception as e:
             return f"Error connecting to Ollama: {e}"
+        
+        
+class SafetyExplainer:
+    """Explains the safety and limitations of the AI's medical summaries."""
+    def __init__(self):
+        print("--- Loading Llama-3 (8B) Safety Explainer ---")
+        self.model_name = "llama3"
+        self.model_loaded = True
+
+    def explain_interaction(self, drug_a, drug_b, raw_description):
+        """Uses Llama-3 to turn a dry DDI rule into a helpful clinical explanation."""
+        print(f"🧠 Llama-3 is explaining interaction: {drug_a} + {drug_b}")
+        
+        prompt = f"""You are a Clinical Pharmacologist. 
+        The system detected a potential interaction between {drug_a} and {drug_b}.
+        Raw Database Note: {raw_description}
+        
+        Task: Write a concise, professional 2-sentence explanation of why this interaction is concerning and what the patient should do (e.g., consult a doctor, monitor for specific symptoms).
+        
+        CRITICAL RULES:
+        - Output ONLY the explanation.
+        - Do NOT say "Here is the explanation".
+        - Do NOT use bolding or bullet points.
+        - Be direct and professional.
+        """
+        
+        try:
+            response = ollama.chat(model=self.model_name, messages=[
+                {'role': 'user', 'content': prompt}
+            ])
+            # Clean the string like we do for other reports
+            return response['message']['content'].replace('\n', ' ').strip()
+        except Exception as e:
+            return f"Warning: {raw_description} (Llama-3 explanation unavailable)"
