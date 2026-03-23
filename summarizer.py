@@ -62,14 +62,21 @@ class DocumentSummarizer:
         print("🧠 Llama-3 is analyzing the document...")
 
         # Restored your preferred Narrative Prompt!
-        prompt = f"""You are an expert Chief Medical Officer. Read the following clinical document and write a highly professional, articulate, and comprehensive medical narrative summary. 
-        
-        Your summary MUST include:
-        1. Chief Complaint & History of Present Illness
-        2. Critical Objective Findings (Vitals, Physical Exam)
-        3. The Assessment and Detailed Treatment Plan
+        # The "Paragraph SOAP" Prompt
+        prompt = f"""You are an expert Chief Medical Officer. Read the following clinical document and extract the core information into a concise SOAP note. 
 
-        Do NOT just copy and paste sentences. Synthesize the information into your own flowing, professional medical prose.
+        Format the output EXACTLY with these four headings. Write a short 2 to 3 sentence paragraph for each section. DO NOT use bullet points.
+
+        Subjective: [Write 2-3 sentences on the patient's reported issues and history]
+        Objective: [Write 2-3 sentences on the most critical vital signs and physical exam findings]
+        Assessment: [Write 1-2 sentences stating the primary diagnosis and clinical status]
+        Plan: [Write 2-3 sentences on the immediate treatment plan, medications, and next steps]
+
+        CRITICAL RULES:
+        - Output ONLY the raw SOAP note. 
+        - DO NOT output any introductory text, greetings, or filler (e.g., NEVER say "Here is the summary").
+        - DO NOT use bullet points.
+        - Write in highly professional medical prose.
 
         DOCUMENT TO SUMMARIZE:
         {full_document}
@@ -81,7 +88,7 @@ class DocumentSummarizer:
             ])
             
             raw_summary = response['message']['content']
-            clean_summary = raw_summary.replace('**', '').replace('\n', ' ').strip()
+            clean_summary = raw_summary.replace('**', '').replace('*', ' ').strip()
             return " ".join(clean_summary.split())
             
         except Exception as e:
